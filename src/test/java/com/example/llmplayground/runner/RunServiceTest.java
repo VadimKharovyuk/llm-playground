@@ -38,7 +38,7 @@ class RunServiceTest {
         PlaygroundProperties properties = new PlaygroundProperties(
                 List.of("openrouter:anthropic/claude-haiku-5.5", "ollama:llama3.2:3b"),
                 0.2, 1024, 1, true, true, "1.0",
-                List.of(new PlaygroundProperties.ModelOverride("ollama:qwen3:8b", 8192, null)), null, null);
+                List.of(new PlaygroundProperties.ModelOverride("ollama:qwen3:8b", 8192, null)), null, null, List.of("ollama", "openrouter"));
         // synchronous executor: the run executes inside start()
         service = new RunService(runs, mock(LlmCallRepository.class), prompts, promptService, benchmark,
                 properties, Runnable::run);
@@ -108,6 +108,28 @@ class RunServiceTest {
         ArgumentCaptor<RunPlan> plan = ArgumentCaptor.forClass(RunPlan.class);
         verify(benchmark).execute(plan.capture());
         assertThat(plan.getValue().prompts()).extracting(RunPlan.PlannedPrompt::name).containsExactly("b", "a");
+        verify(promptService, never()).create(any(), any());
+    }
+
+    @Test
+    void ollamaOnlyRejectsCloudModelsEvenWhenTypedByHand() {
+        PlaygroundProperties ollamaOnly = new PlaygroundProperties(
+                List.of("openrouter:anthropic/claude-haiku-5.5", "ollama:llama3.2:3b"),
+                0.2, 1024, 1, true, true, "1.0", List.of(), null, null, List.of("ollama"));
+        RunService ollamaService = new RunService(runs, mock(LlmCallRepository.class), prompts, promptService,
+                benchmark, ollamaOnly, Runnable::run);
+
+        assertThat(ollamaService.defaultForm().getModels()).containsExactly("ollama:llama3.2:3b");
+
+        RunForm form = new RunForm();
+        form.setModels(List.of("ollama:llama3.2:3b"));
+        form.setExtraModels("openrouter:openai/gpt-5-mini");
+        form.setNewPromptText("task");
+        assertThatThrownBy(() -> ollamaService.start(form))
+                .hasMessageContaining("openrouter:openai/gpt-5-mini")
+                .hasMessageContaining("выключен")
+                .hasMessageContaining("CHAT_PROVIDERS");
+        verifyNoInteractions(benchmark);
         verify(promptService, never()).create(any(), any());
     }
 

@@ -48,11 +48,26 @@ cp .env.example .env
 ```
 
 ```properties
+CHAT_PROVIDERS=ollama
 OPENROUTER_API_KEY=sk-or-...
 DB_URL=jdbc:postgresql://localhost:5432/llm-playground
 DB_USER=postgres
 DB_PASSWORD=
 ```
+
+### Выбор провайдера
+
+Провайдер переключается переменной `CHAT_PROVIDERS` в `.env`. После правки приложение нужно перезапустить.
+
+| Значение | Что доступно |
+|---|---|
+| `ollama` (по умолчанию) | только локальные модели |
+| `openrouter` | только облачные модели (нужен `OPENROUTER_API_KEY`) |
+| `ollama,openrouter` | оба провайдера, их модели можно сравнивать в одном прогоне |
+
+Модели выключенного провайдера не показываются в форме. Если вписать такую модель вручную, форма её отклонит.
+Список `playground.models` в `application.properties` при переключении править не нужно: из него берутся
+только модели включённого провайдера.
 
 Модели и параметры по умолчанию задаются в `src/main/resources/application.properties`:
 

@@ -57,7 +57,7 @@ class WebPagesTest {
         PlaygroundProperties playgroundProperties() {
             return new PlaygroundProperties(List.of("openrouter:anthropic/claude-haiku-5.5", "ollama:llama3.2:3b"),
                     0.2, 1024, 1, true, true, "1.0",
-                    List.of(new PlaygroundProperties.ModelOverride("ollama:qwen3:8b", 8192, null)), null, null);
+                    List.of(new PlaygroundProperties.ModelOverride("ollama:qwen3:8b", 8192, null)), null, null, List.of("ollama", "openrouter"));
         }
     }
 

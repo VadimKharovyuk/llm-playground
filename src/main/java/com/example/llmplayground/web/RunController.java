@@ -2,6 +2,7 @@ package com.example.llmplayground.web;
 
 import com.example.llmplayground.NotFoundException;
 import com.example.llmplayground.config.PlaygroundProperties;
+import com.example.llmplayground.llm.ProviderType;
 import com.example.llmplayground.llm.provider.OpenRouterProvider;
 import com.example.llmplayground.persistence.LlmCall;
 import com.example.llmplayground.persistence.LlmCallRepository;
@@ -102,16 +103,32 @@ public class RunController {
     }
 
     private String formPage(RunForm form, String error, Model model) {
-        Set<String> options = new LinkedHashSet<>(properties.models());
-        options.addAll(modelCatalog.ollamaModels());
+        boolean ollamaOn = properties.isEnabled(ProviderType.OLLAMA);
+        boolean openRouterOn = properties.isEnabled(ProviderType.OPENROUTER);
+        // only models of enabled providers are offered; e.g. "Repeat" of an old OpenRouter run drops them
+        form.setModels(new ArrayList<>(form.getModels().stream().filter(properties::isEnabled).toList()));
+        Set<String> options = new LinkedHashSet<>(properties.enabledModels());
+        if (ollamaOn) {
+            options.addAll(modelCatalog.ollamaModels());
+        }
         options.addAll(form.getModels());
+        List<String> suggestions = new ArrayList<>();
+        if (openRouterOn) {
+            suggestions.addAll(modelCatalog.openRouterModels());
+        }
         model.addAttribute("form", form);
         model.addAttribute("error", error);
         model.addAttribute("modelOptions", options);
         model.addAttribute("configuredModels", Set.copyOf(properties.models()));
-        model.addAttribute("openRouterModels", modelCatalog.openRouterModels());
+        model.addAttribute("modelSuggestions", suggestions);
         model.addAttribute("prompts", promptService.all());
-        model.addAttribute("overrides", properties.modelOverrides());
+        model.addAttribute("overrides", properties.modelOverrides().stream()
+                .filter(o -> o.model() != null && properties.isEnabled(o.model())).toList());
+        model.addAttribute("providers", runService.enabledPrefixes());
+        model.addAttribute("openRouterOn", openRouterOn);
+        model.addAttribute("modelPlaceholder", openRouterOn && ollamaOn
+                ? "openrouter:google/gemini-3-flash-preview, ollama:qwen3:8b"
+                : openRouterOn ? "openrouter:google/gemini-3-flash-preview" : "ollama:qwen3:8b");
         model.addAttribute("openRouterKey", openRouter.isConfigured());
         model.addAttribute("active", "new");
         return "runs/new";
@@ -173,16 +190,43 @@ public class RunController {
     public record PromptGroup(Long promptId, String name, String text, List<LlmCall> calls) {
     }
 
+    // ---------------------------------------------------------------- delete
+
+    /** Deletes one run with all its answers; from the run page or a row of the run list. */
     @PostMapping("/runs/{id}/delete")
-    public String deleteRun(@PathVariable long id, RedirectAttributes redirect) {
-        Run run = findRun(id);
-        if (run.getStatus().isActive()) {
-            redirect.addFlashAttribute("error", "Прогон #" + id + " ещё выполняется");
-            return "redirect:/runs/" + id;
+    public String deleteRun(@PathVariable long id, @RequestParam(required = false) String back,
+                            RedirectAttributes redirect) {
+        findRun(id);
+        RunService.DeleteResult result = runService.delete(List.of(id));
+        if (!result.skipped().isEmpty()) {
+            redirect.addFlashAttribute("error", "Прогон #" + id + " ещё выполняется, удалить его нельзя");
+            return "list".equals(back) ? "redirect:/runs" : "redirect:/runs/" + id;
         }
-        runRepository.delete(run);
-        redirect.addFlashAttribute("message", "Прогон #" + id + " удалён");
+        redirect.addFlashAttribute("message", "Прогон #" + id + " удалён вместе с ответами");
         return "redirect:/runs";
+    }
+
+    /** Deletes the runs checked in the run list. */
+    @PostMapping("/runs/delete")
+    public String deleteRuns(@RequestParam(name = "ids", required = false) List<Long> ids,
+                             RedirectAttributes redirect) {
+        if (ids == null || ids.isEmpty()) {
+            redirect.addFlashAttribute("error", "Отметьте прогоны, которые нужно удалить");
+            return "redirect:/runs";
+        }
+        RunService.DeleteResult result = runService.delete(ids);
+        if (!result.deleted().isEmpty()) {
+            redirect.addFlashAttribute("message", "Удалено прогонов: " + result.deleted().size()
+                    + " (" + joinIds(result.deleted()) + ")");
+        }
+        if (!result.skipped().isEmpty()) {
+            redirect.addFlashAttribute("error", "Ещё выполняются, не удалены: " + joinIds(result.skipped()));
+        }
+        return "redirect:/runs";
+    }
+
+    private static String joinIds(List<Long> ids) {
+        return ids.stream().map(id -> "#" + id).collect(Collectors.joining(", "));
     }
 
     // ---------------------------------------------------------------- rating

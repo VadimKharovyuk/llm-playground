@@ -1,11 +1,15 @@
 package com.example.llmplayground.config;
 
 import com.example.llmplayground.llm.ModelRef;
+import com.example.llmplayground.llm.ProviderType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Everything under {@code playground.*} in application.properties. */
 @ConfigurationProperties("playground")
@@ -19,9 +23,14 @@ public record PlaygroundProperties(
         String appVersion,
         List<ModelOverride> modelOverrides,
         Http http,
-        OpenRouter openrouter) {
+        OpenRouter openrouter,
+        List<String> providers) {
 
     public PlaygroundProperties {
+        providers = providers == null ? List.of() : providers.stream()
+                .map(String::strip).filter(s -> !s.isEmpty()).toList();
+        // fail fast on a typo like CHAT_PROVIDERS=olama
+        providers.forEach(ProviderType::fromPrefix);
         models = models == null ? List.of() : List.copyOf(models);
         runsPerPrompt = runsPerPrompt == null ? 1 : runsPerPrompt;
         streaming = streaming == null || streaming;
@@ -34,6 +43,33 @@ public record PlaygroundProperties(
     /** Configured models; fails fast on a malformed entry. */
     public List<ModelRef> modelRefs() {
         return models.stream().map(ModelRef::parse).toList();
+    }
+
+    /** Providers switched on by {@code playground.providers} (CHAT_PROVIDERS); empty means all. */
+    public Set<ProviderType> enabledProviders() {
+        if (providers.isEmpty()) {
+            return EnumSet.allOf(ProviderType.class);
+        }
+        return providers.stream().map(ProviderType::fromPrefix)
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(ProviderType.class)));
+    }
+
+    public boolean isEnabled(ProviderType provider) {
+        return enabledProviders().contains(provider);
+    }
+
+    /** True for a well-formed {@code provider:model} of an enabled provider. */
+    public boolean isEnabled(String modelRef) {
+        try {
+            return isEnabled(ModelRef.parse(modelRef).provider());
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /** Configured models of the enabled providers. */
+    public List<String> enabledModels() {
+        return models.stream().filter(this::isEnabled).toList();
     }
 
     /** Per-model max-tokens from model-overrides, otherwise the given common value. */

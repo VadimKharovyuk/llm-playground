@@ -17,10 +17,12 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -65,7 +67,7 @@ public class RunService {
     /** A form pre-filled with the defaults from application.properties. */
     public RunForm defaultForm() {
         RunForm form = new RunForm();
-        form.setModels(new ArrayList<>(properties.models()));
+        form.setModels(new ArrayList<>(properties.enabledModels()));
         form.setTemperature(properties.temperature());
         form.setMaxTokens(properties.maxTokens());
         form.setRunsPerPrompt(properties.runsPerPrompt());
@@ -84,6 +86,13 @@ public class RunService {
         List<ModelRef> models = parseModels(form);
         if (models.isEmpty()) {
             throw new IllegalArgumentException("Выберите хотя бы одну модель");
+        }
+        for (ModelRef model : models) {
+            if (!properties.isEnabled(model.provider())) {
+                throw new IllegalArgumentException("Модель «" + model + "»: провайдер " + model.provider().prefix()
+                        + " выключен. Сейчас включены: " + enabledPrefixes()
+                        + " (CHAT_PROVIDERS в .env)");
+            }
         }
         Double temperature = form.getTemperature();
         if (temperature != null && (temperature < 0 || temperature > 2)) {
@@ -136,6 +145,38 @@ public class RunService {
         executor.execute(() -> benchmarkService.execute(plan));
         log.info("Run #{} queued: {} call(s)", run.getId(), plan.expectedCalls());
         return run.getId();
+    }
+
+    /**
+     * Deletes runs with all their calls (llm_call rows go with ON DELETE CASCADE).
+     * Queued or running runs are skipped: the background thread is still writing to them.
+     */
+    @Transactional
+    public DeleteResult delete(Collection<Long> ids) {
+        List<Long> deleted = new ArrayList<>();
+        List<Long> skipped = new ArrayList<>();
+        for (Run run : runRepository.findAllById(ids == null ? List.of() : ids)) {
+            if (run.getStatus().isActive()) {
+                skipped.add(run.getId());
+            } else {
+                deleted.add(run.getId());
+            }
+        }
+        if (!deleted.isEmpty()) {
+            runRepository.deleteAllByIdInBatch(deleted);
+            log.info("Deleted run(s) {}", deleted);
+        }
+        deleted.sort(null);
+        skipped.sort(null);
+        return new DeleteResult(deleted, skipped);
+    }
+
+    public record DeleteResult(List<Long> deleted, List<Long> skipped) {
+    }
+
+    /** "ollama" or "ollama, openrouter". */
+    public String enabledPrefixes() {
+        return properties.enabledProviders().stream().map(p -> p.prefix()).collect(Collectors.joining(", "));
     }
 
     public Progress progress(Run run) {

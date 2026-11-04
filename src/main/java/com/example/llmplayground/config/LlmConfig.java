@@ -24,6 +24,8 @@ import java.util.List;
 @Configuration
 public class LlmConfig {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LlmConfig.class);
+
     static final String MISSING_KEY = "missing";
 
     @Bean
@@ -44,8 +46,12 @@ public class LlmConfig {
         return new OllamaProvider(ollamaChatModel, properties.http().readTimeout());
     }
 
+    /** Only providers enabled by CHAT_PROVIDERS are routable; a call to another one ends as ERROR. */
     @Bean
-    LlmGateway llmGateway(List<LlmProvider> providers, LlmCallRepository repository) {
-        return new RecordingLlmGateway(new MeteredLlmGateway(providers), repository);
+    LlmGateway llmGateway(List<LlmProvider> providers, LlmCallRepository repository,
+                          PlaygroundProperties properties) {
+        List<LlmProvider> enabled = providers.stream().filter(p -> properties.isEnabled(p.type())).toList();
+        log.info("Enabled LLM providers: {}", enabled.stream().map(p -> p.type().prefix()).toList());
+        return new RecordingLlmGateway(new MeteredLlmGateway(enabled), repository);
     }
 }

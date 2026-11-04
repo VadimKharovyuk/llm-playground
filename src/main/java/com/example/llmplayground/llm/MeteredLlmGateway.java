@@ -32,7 +32,8 @@ public class MeteredLlmGateway implements LlmGateway {
         long start = System.nanoTime();
         LlmProvider provider = providers.get(request.model().provider());
         if (provider == null) {
-            return error(request, startedAt, 0, "Provider " + request.model().provider() + " is not configured");
+            return error(request, startedAt, 0, "Provider " + request.model().provider().prefix()
+                    + " is disabled (CHAT_PROVIDERS)");
         }
 
         ProviderResponse response;

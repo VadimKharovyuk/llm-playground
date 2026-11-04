@@ -9,7 +9,7 @@
         рядом по качеству, токенам и времени.</p>
 
     <div class="alert error" th:if="${error}" th:text="${error}"></div>
-    <div class="alert warn" th:unless="${openRouterKey}">
+    <div class="alert warn" th:if="${openRouterOn and !openRouterKey}">
         Ключ OpenRouter не задан: облачные модели вернут ERROR. Добавьте <code>OPENROUTER_API_KEY</code> в файл
         <code>.env</code> и перезапустите приложение.
     </div>
@@ -38,6 +38,11 @@
 
         <section class="card">
             <h2>2. Модели</h2>
+            <p class="hint">Провайдер: <strong th:text="${providers}">ollama</strong>. Переключается переменной
+                <code>CHAT_PROVIDERS</code> в <code>.env</code> (<code>ollama</code>, <code>openrouter</code>
+                или <code>ollama,openrouter</code>), после правки нужен перезапуск.</p>
+            <p class="muted" th:if="${#sets.isEmpty(modelOptions)}">Нет моделей для этого провайдера: добавьте их
+                в <code>playground.models</code> или впишите ниже.</p>
             <div class="checklist models" id="model-list">
                 <label th:each="m : ${modelOptions}" class="check">
                     <input type="checkbox" th:field="*{models}" th:value="${m}">
@@ -47,12 +52,12 @@
             </div>
             <label for="extraModels">Другие модели (через запятую или с новой строки)</label>
             <div class="row">
-                <input class="grow" type="text" id="extraModels" th:field="*{extraModels}" list="openrouter-models"
-                       placeholder="openrouter:google/gemini-3-flash-preview, ollama:qwen3:8b">
+                <input class="grow" type="text" id="extraModels" th:field="*{extraModels}" list="model-suggestions"
+                       th:placeholder="${modelPlaceholder}">
                 <button type="button" class="secondary" id="add-model">Добавить</button>
             </div>
-            <datalist id="openrouter-models">
-                <option th:each="m : ${openRouterModels}" th:value="${m}"></option>
+            <datalist id="model-suggestions">
+                <option th:each="m : ${modelSuggestions}" th:value="${m}"></option>
             </datalist>
             <p class="hint">Список моделей по умолчанию задаётся в <code>application.properties</code>
                 (<code>playground.models[N]</code>). Свой лимит токенов для моделей:

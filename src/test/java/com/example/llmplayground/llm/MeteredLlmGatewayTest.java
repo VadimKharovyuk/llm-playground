@@ -80,7 +80,7 @@ class MeteredLlmGatewayTest {
     void missingProviderIsError() {
         LlmResult result = new MeteredLlmGateway(List.of()).call(request("ollama:llama3.2"), CTX);
         assertThat(result.status()).isEqualTo(CallStatus.ERROR);
-        assertThat(result.errorMessage()).contains("not configured");
+        assertThat(result.errorMessage()).contains("disabled");
     }
 
     @Test
