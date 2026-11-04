@@ -90,8 +90,8 @@ playground.model-overrides[0].max-tokens=8192
 ./mvnw spring-boot:run
 ```
 
-Откройте http://localhost:1509. Сервер слушает только `127.0.0.1`, потому что через него можно тратить
-кредиты OpenRouter.
+Откройте http://localhost:1510 (порт задаётся в `server.port`). Сервер слушает только `127.0.0.1`,
+потому что через него можно тратить кредиты OpenRouter.
 
 ## Как считаются метрики
 
@@ -132,6 +132,10 @@ web/          контроллеры; шаблоны Thymeleaf в resources/temp
 Тесты не обращаются ни к OpenRouter, ни к Ollama: провайдеры заменены заглушками. Страницы рендерятся
 настоящими шаблонами через MockMvc. Тесты репозиториев и контекста запускаются на PostgreSQL
 в Testcontainers, а без Docker пропускаются.
+
+## Автор
+
+[Вадим Харовюк](https://webscraft.org/blog/java-backend-rozrobnik-vadim-harovyuk) — Java backend-разработчик.
 
 ## Лицензия
 
