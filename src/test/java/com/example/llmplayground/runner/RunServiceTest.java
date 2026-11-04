@@ -134,6 +134,39 @@ class RunServiceTest {
     }
 
     @Test
+    void deleteRemovesFinishedRunsAndSkipsActiveOnes() {
+        Run done = new Run();
+        done.setId(1L);
+        done.setStatus(RunStatus.DONE);
+        Run failed = new Run();
+        failed.setId(3L);
+        failed.setStatus(RunStatus.FAILED);
+        Run running = new Run();
+        running.setId(2L);
+        running.setStatus(RunStatus.RUNNING);
+        when(runs.findAllById(List.of(3L, 2L, 1L))).thenReturn(List.of(failed, running, done));
+
+        RunService.DeleteResult result = service.delete(List.of(3L, 2L, 1L));
+
+        assertThat(result.deleted()).containsExactly(1L, 3L);
+        assertThat(result.skipped()).containsExactly(2L);
+        ArgumentCaptor<Iterable<Long>> deleted = ArgumentCaptor.forClass(Iterable.class);
+        verify(runs).deleteAllByIdInBatch(deleted.capture());
+        assertThat(deleted.getValue()).containsExactlyInAnyOrder(1L, 3L);
+    }
+
+    @Test
+    void deletingOnlyActiveRunsDeletesNothing() {
+        Run running = new Run();
+        running.setId(2L);
+        running.setStatus(RunStatus.QUEUED);
+        when(runs.findAllById(List.of(2L))).thenReturn(List.of(running));
+
+        assertThat(service.delete(List.of(2L)).skipped()).containsExactly(2L);
+        verify(runs, never()).deleteAllByIdInBatch(any());
+    }
+
+    @Test
     void rejectsFormWithoutModels() {
         RunForm form = new RunForm();
         form.setNewPromptText("task");

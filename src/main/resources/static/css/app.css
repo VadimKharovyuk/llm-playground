@@ -119,6 +119,11 @@ button.link { border: 0; background: none; color: var(--accent); padding: 0; fon
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .actions form { margin: 0; }
 
+.toolbar { display: flex; gap: 12px; align-items: center; margin: 0 0 12px; }
+button:disabled { opacity: .45; cursor: default; border-color: var(--border); }
+.check-col { width: 32px; padding-right: 0; }
+.check-col input { margin: 0; cursor: pointer; }
+
 .params-list { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 8px 0 16px; }
 .params-list div { display: flex; gap: 6px; }
 .params-list dt { color: var(--muted); }

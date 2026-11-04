@@ -42,6 +42,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -223,6 +224,48 @@ class WebPagesTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", containsString("run-7.md")))
                 .andExpect(content().string(containsString("| OLLAMA | llama3.2:3b |")));
+    }
+
+    @Test
+    void runListHasDeleteControls() throws Exception {
+        mvc.perform(get("/runs"))
+                .andExpect(content().string(containsString("action=\"/runs/delete\"")))
+                .andExpect(content().string(containsString("name=\"ids\"")))
+                .andExpect(content().string(containsString("formaction=\"/runs/7/delete?back=list\"")));
+    }
+
+    @Test
+    void deletingOneRunRedirectsToTheList() throws Exception {
+        when(runService.delete(List.of(7L))).thenReturn(new RunService.DeleteResult(List.of(7L), List.of()));
+        mvc.perform(post("/runs/7/delete").param("back", "list"))
+                .andExpect(redirectedUrl("/runs"))
+                .andExpect(flash().attribute("message", containsString("#7")));
+    }
+
+    @Test
+    void runningRunIsNotDeleted() throws Exception {
+        when(runService.delete(List.of(7L))).thenReturn(new RunService.DeleteResult(List.of(), List.of(7L)));
+        mvc.perform(post("/runs/7/delete"))
+                .andExpect(redirectedUrl("/runs/7"))
+                .andExpect(flash().attribute("error", containsString("выполняется")));
+    }
+
+    @Test
+    void bulkDeleteReportsDeletedAndSkipped() throws Exception {
+        when(runService.delete(List.of(1L, 2L, 3L)))
+                .thenReturn(new RunService.DeleteResult(List.of(1L, 3L), List.of(2L)));
+        mvc.perform(post("/runs/delete").param("ids", "1", "2", "3"))
+                .andExpect(redirectedUrl("/runs"))
+                .andExpect(flash().attribute("message", "Удалено прогонов: 2 (#1, #3)"))
+                .andExpect(flash().attribute("error", "Ещё выполняются, не удалены: #2"));
+    }
+
+    @Test
+    void bulkDeleteWithoutSelectionAsksToSelect() throws Exception {
+        mvc.perform(post("/runs/delete"))
+                .andExpect(redirectedUrl("/runs"))
+                .andExpect(flash().attribute("error", containsString("Отметьте")));
+        verify(runService, org.mockito.Mockito.never()).delete(any());
     }
 
     @Test

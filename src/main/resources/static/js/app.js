@@ -111,9 +111,52 @@
         });
     }
 
+    // Run list: "select all", counter and the bulk delete button.
+    function runSelection() {
+        var form = document.getElementById('runs-form');
+        if (!form) {
+            return;
+        }
+        var all = document.getElementById('select-all');
+        var button = document.getElementById('delete-selected');
+        var counter = document.getElementById('selected-count');
+        var checks = function () {
+            return Array.prototype.filter.call(form.querySelectorAll('.run-check'), function (c) { return !c.disabled; });
+        };
+        var update = function () {
+            var list = checks();
+            var n = list.filter(function (c) { return c.checked; }).length;
+            if (button) { button.disabled = n === 0; }
+            if (counter) { counter.textContent = n ? 'отмечено: ' + n : ''; }
+            if (all) {
+                all.checked = n > 0 && n === list.length;
+                all.indeterminate = n > 0 && n < list.length;
+            }
+        };
+        if (all) {
+            all.addEventListener('change', function () {
+                checks().forEach(function (c) { c.checked = all.checked; });
+                update();
+            });
+        }
+        form.addEventListener('change', function (e) {
+            if (e.target.classList.contains('run-check')) { update(); }
+        });
+        update();
+    }
+
+    // Any submit button with data-confirm asks first.
+    document.addEventListener('click', function (e) {
+        var button = e.target.closest('button[data-confirm]');
+        if (button && !confirm(button.dataset.confirm)) {
+            e.preventDefault();
+        }
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         renderAnswers(document);
         pollRun();
         modelAdder();
+        runSelection();
     });
 })();
