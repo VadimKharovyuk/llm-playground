@@ -1,8 +1,10 @@
 # llm-playground
 
-Консольный стенд для тестирования LLM. Один и тот же набор промптов прогоняется через облачные модели
-(**OpenRouter**) и локальные (**Ollama**). Каждый вызов замеряется и сохраняется в PostgreSQL,
-а по прогону строится сводка, которую можно вставить в статью.
+Веб-стенд для сравнения LLM. Вы пишете задание, например «напиши контроллер и репозиторий на Spring Boot»,
+выбираете модели: облачные через **OpenRouter** и локальные через **Ollama**. Ответы появляются рядом,
+у каждого показаны время, токены и стоимость, и каждому можно поставить оценку качества от 1 до 5.
+Всё сохраняется в PostgreSQL, поэтому новую модель потом можно прогнать на тех же заданиях
+и сравнить со старыми результатами.
 
 Что замеряется у каждого вызова:
 
@@ -10,21 +12,31 @@
 - токены prompt / completion / total и скорость генерации в токенах в секунду;
 - `finish_reason`, стоимость (у OpenRouter берётся точная, у Ollama 0);
 - холодный старт Ollama и её собственные счётчики `eval_count`, `eval_duration`, `load_duration`;
-- статус `OK` / `ERROR` / `EMPTY`, причина ошибки и полный текст ответа.
+- статус `OK` / `ERROR` / `EMPTY` и причина ошибки;
+- полный текст ответа (сохраняется без изменений) и ваша оценка с заметкой.
+
+## Страницы
+
+| Страница | Что на ней |
+|---|---|
+| `/` — **Новое сравнение** | задание (новое или из библиотеки), выбор моделей, параметры, запуск |
+| `/runs/{id}` — **Прогон** | сводка по моделям, ответы рядом (Markdown с подсветкой кода), оценки, экспорт в Markdown/CSV |
+| `/runs` — **Прогоны** | история прогонов |
+| `/prompts` — **Промпты** | библиотека заданий; на странице задания видно, как на него ответили все модели во всех прогонах |
+| `/models` — **Модели** | общий рейтинг: оценка, время, токены, скорость, стоимость по всем прогонам |
+
+Прогоны выполняются в фоне по одному: параллельные прогоны искажали бы замеры локальных моделей.
+Пока прогон идёт, страница обновляется сама.
 
 ## Требования
 
 - Java 21
 - PostgreSQL (база должна существовать, схему создаёт Flyway)
 - Ключ OpenRouter: https://openrouter.ai/keys (без него работает только Ollama)
-- [Ollama](https://ollama.com) с нужными моделями:
+- [Ollama](https://ollama.com) с нужными моделями. Установленные модели сами появляются в форме:
 
 ```bash
 ollama pull llama3.2:3b
-```
-
-```bash
-ollama pull qwen3:8b
 ```
 
 ## Настройка
@@ -42,19 +54,20 @@ DB_USER=postgres
 DB_PASSWORD=
 ```
 
-Остальные настройки лежат в `src/main/resources/application.yml`, в секции `playground`:
+Модели и параметры по умолчанию задаются в `src/main/resources/application.properties`:
 
-| Параметр | По умолчанию | Описание |
-|---|---|---|
-| `models` | haiku-5.5, llama3.2:3b | модели в формате `provider:model`, где provider — `openrouter` или `ollama` |
-| `prompts` | все | имена промптов из `src/main/resources/prompts/` (имя файла без расширения) |
-| `temperature` / `max-tokens` | 0.2 / 1024 | общие параметры для всех моделей |
-| `model-overrides` | — | свой `max-tokens` / `temperature` для отдельной модели (нужно reasoning-моделям) |
-| `runs-per-prompt` | 3 | сколько раз повторять каждый промпт |
-| `streaming` | true | стриминг нужен для замера TTFT |
-| `warmup` | true | прогревочный вызов Ollama, сохраняется с `cold_start=true` |
-| `http.connect-timeout` / `http.read-timeout` | 10s / 120s | HTTP-таймауты; ретраев Spring AI максимум 2 |
-| `comment` | — | комментарий к прогону, сохраняется в `run` |
+```properties
+playground.models[0]=openrouter:anthropic/claude-haiku-5.5
+playground.models[1]=ollama:llama3.2:3b
+playground.temperature=0.2
+playground.max-tokens=2048
+# reasoning-моделям нужен запас токенов, иначе вернётся пустой ответ с finish_reason=length
+playground.model-overrides[0].model=openrouter:deepseek/deepseek-r1-0528
+playground.model-overrides[0].max-tokens=8192
+```
+
+Модель записывается в формате `provider:model`, где provider — `openrouter` или `ollama`.
+В форме можно выбрать любую другую модель: поле подсказывает весь каталог OpenRouter.
 
 ## Запуск
 
@@ -62,69 +75,35 @@ DB_PASSWORD=
 ./mvnw spring-boot:run
 ```
 
-Любой параметр можно переопределить из командной строки:
-
-```bash
-./mvnw spring-boot:run -Dspring-boot.run.arguments="--playground.models[0]=ollama:qwen3:8b --playground.models[1]=openrouter:openai/gpt-5-mini --playground.runs-per-prompt=5"
-```
-
-Или собрать jar и запускать его:
-
-```bash
-./mvnw package -DskipTests
-```
-
-```bash
-java -jar target/llm-playground-0.0.1-SNAPSHOT.jar --playground.prompts=json-extraction,logic-puzzle --playground.comment="local vs cloud"
-```
-
-Reasoning-модели тратят токены на скрытые рассуждения. Если лимита не хватает, они возвращают пустой ответ
-с `finish_reason=length`, и вызов получает статус `EMPTY`. Таким моделям лимит поднимают отдельно:
-
-```bash
-java -jar target/llm-playground-0.0.1-SNAPSHOT.jar "--playground.models[0]=openrouter:deepseek/deepseek-r1-0528" "--playground.model-overrides[0].model=openrouter:deepseek/deepseek-r1-0528" "--playground.model-overrides[0].max-tokens=8192"
-```
-
-## Отчёт
-
-После каждого прогона в консоль выводится сводка по моделям: число вызовов, ошибок и пустых ответов,
-среднее, минимальное, максимальное и медианное время, TTFT, токены, токены в секунду, стоимость и время
-холодного старта. Одновременно в `reports/` записываются три файла:
-
-- `run-N.md` — таблица в Markdown для статьи;
-- `run-N.csv` — та же сводка в CSV;
-- `run-N-calls.csv` — метрики каждого вызова, без текста ответа.
-
-Отчёт по уже сохранённому прогону строится из БД (без `run-id` берётся последний прогон):
-
-```bash
-java -jar target/llm-playground-0.0.1-SNAPSHOT.jar --playground.mode=report --playground.report.run-id=3
-```
-
-Числа всегда печатаются с точкой (`Locale.ROOT`), независимо от локали системы.
+Откройте http://localhost:1509. Сервер слушает только `127.0.0.1`, потому что через него можно тратить
+кредиты OpenRouter.
 
 ## Как считаются метрики
 
-- **Время** считается только по успешным измеряемым вызовам. В него не входят прогревочный вызов и вызовы,
-  во время которых Ollama заново загружала модель (`load_duration` больше 1 с): такие вызовы помечаются
-  `cold_start`.
+- **Время** считается только по успешным измеряемым вызовам. В него не входят прогревочный вызов Ollama и вызовы,
+  во время которых Ollama заново загружала модель (`load_duration` больше 1 с): такие вызовы помечаются `cold start`.
 - **Токены в секунду** у Ollama считаются как `eval_count / eval_duration`, то есть чистая скорость генерации.
   У остальных моделей это completion-токены, делённые на время после первого токена при стриминге
   или на полное время без стриминга.
 - **Стоимость OpenRouter** запрашивается после вызова через `GET /api/v1/generation`, вне замеряемого времени.
 - **Ошибки** не прерывают прогон: вызов сохраняется со статусом `ERROR` и понятной причиной
-  (`TIMEOUT`, `CONNECTION REFUSED`, ответ HTTP), а не «Error while extracting response».
+  (`TIMEOUT`, `CONNECTION REFUSED`, ответ HTTP).
+- **Промпт с ответами не меняется.** Если его отредактировать, изменения сохранятся как новый промпт,
+  а старые ответы останутся привязаны к тому тексту, на который они были даны.
+
+Все числа выводятся с точкой (`Locale.ROOT`), независимо от локали системы.
 
 ## Структура
 
 ```
-config/       PlaygroundProperties, сборка gateway и провайдеров
+config/       PlaygroundProperties, сборка gateway и провайдеров, фоновый executor
 llm/          LlmGateway, MeteredLlmGateway (замер), RecordingLlmGateway (запись в БД), ErrorDescriber
 llm/provider/ OpenRouterProvider, OllamaProvider, ChatModelExecutor (call/stream), OpenRouterCostClient
-persistence/  сущности run / llm_call и репозитории
-prompt/       PromptLibrary: промпты из resources/prompts
-runner/       PlaygroundRunner (CommandLineRunner), BenchmarkService
-report/       SQL-агрегации, вывод в консоль, Markdown и CSV
+persistence/  сущности run / llm_call / prompt и репозитории
+prompt/       PromptService, PromptSeeder (примеры из resources/prompts)
+runner/       RunService (форма → фоновый прогон), BenchmarkService, ModelCatalog
+report/       SQL-агрегации, экспорт в Markdown и CSV
+web/          контроллеры; шаблоны Thymeleaf в resources/templates
 ```
 
 Схема БД задаётся миграциями в `src/main/resources/db/migration`.
@@ -135,8 +114,9 @@ report/       SQL-агрегации, вывод в консоль, Markdown и 
 ./mvnw test
 ```
 
-Тесты не обращаются ни к OpenRouter, ни к Ollama: провайдеры заменены заглушками.
-Тесты репозиториев и контекста запускаются на PostgreSQL в Testcontainers, а без Docker пропускаются.
+Тесты не обращаются ни к OpenRouter, ни к Ollama: провайдеры заменены заглушками. Страницы рендерятся
+настоящими шаблонами через MockMvc. Тесты репозиториев и контекста запускаются на PostgreSQL
+в Testcontainers, а без Docker пропускаются.
 
 ## Лицензия
 

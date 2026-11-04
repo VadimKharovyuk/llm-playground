@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Прогоны')}"></head>
+<body>
+<header th:replace="~{fragments :: nav}"></header>
+<main>
+    <h1>Прогоны</h1>
+    <div th:replace="~{fragments :: flash}"></div>
+    <div class="table-wrap">
+        <table class="runs">
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>Начат</th>
+                <th>Статус</th>
+                <th>Промпты</th>
+                <th>Модели</th>
+                <th class="num">Вызовов</th>
+                <th class="num">ERR / EMPTY</th>
+                <th class="num">Стоимость</th>
+                <th>Комментарий</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="r : ${runs}" th:with="t=${totals.get(r.id)}">
+                <td><a th:href="@{/runs/{id}(id=${r.id})}" th:text="'#' + ${r.id}"></a></td>
+                <td class="nowrap" th:text="${@fmt.dateTime(r.startedAt)}"></td>
+                <td><span class="status" th:classappend="${#strings.toLowerCase(r.status.name())}" th:text="${r.status}"></span></td>
+                <td class="clip" th:text="${r.prompts}" th:title="${r.prompts}"></td>
+                <td class="clip models-cell" th:text="${#strings.replace(r.models, ',', ', ')}" th:title="${r.models}"></td>
+                <td class="num" th:text="${t != null} ? ${t.calls} : 0"></td>
+                <td class="num" th:text="${t != null} ? ${t.errors} + ' / ' + ${t.empty} : '–'"></td>
+                <td class="num" th:text="${t != null} ? ${@fmt.money(t.cost)} : '–'"></td>
+                <td class="clip" th:text="${r.comment}"></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(runs)}">
+                <td colspan="9" class="muted">Прогонов пока нет. <a th:href="@{/}">Запустить первое сравнение</a></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

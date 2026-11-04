@@ -51,6 +51,7 @@ public class RecordingLlmGateway implements LlmGateway {
     static LlmCall toEntity(LlmResult result, CallContext context, boolean coldStart) {
         LlmCall call = new LlmCall();
         call.setRunId(context.runId());
+        call.setPromptId(context.promptId());
         call.setProvider(result.model().provider());
         call.setModel(result.model().model());
         call.setPromptName(result.promptName());

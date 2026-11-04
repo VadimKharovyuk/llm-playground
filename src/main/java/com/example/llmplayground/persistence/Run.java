@@ -2,6 +2,8 @@ package com.example.llmplayground.persistence;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -54,4 +56,15 @@ public class Run {
 
     @Column(name = "comment", columnDefinition = "text")
     private String comment;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 16)
+    private RunStatus status = RunStatus.QUEUED;
+
+    /** Planned number of calls (warm-up included), for the progress bar. */
+    @Column(name = "expected_calls")
+    private Integer expectedCalls;
+
+    @Column(name = "error_message", columnDefinition = "text")
+    private String errorMessage;
 }

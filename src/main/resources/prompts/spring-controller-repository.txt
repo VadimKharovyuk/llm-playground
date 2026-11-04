@@ -1,0 +1,10 @@
+Write a Spring Boot 3 REST API for a "Book" entity (id, title, author, isbn, publishedYear) in Java 21.
+
+Requirements:
+- JPA entity and a Spring Data JPA repository with a method to find books by author (case-insensitive)
+- a service layer
+- a REST controller with CRUD endpoints under /api/books, returning DTOs (records), not entities
+- input validation (title and author required, isbn unique) and correct HTTP status codes (201, 404, 400, 409)
+- a global exception handler
+
+Give the code file by file, without explanations.

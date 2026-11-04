@@ -106,4 +106,14 @@ public class LlmCall {
 
     @Column(name = "response_text", columnDefinition = "text")
     private String responseText;
+
+    @Column(name = "prompt_id")
+    private Long promptId;
+
+    /** Manual quality rating 1..5, null = not rated yet. */
+    @Column(name = "rating")
+    private Short rating;
+
+    @Column(name = "rating_note", columnDefinition = "text")
+    private String ratingNote;
 }

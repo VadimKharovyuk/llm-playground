@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Модели')}"></head>
+<body>
+<header th:replace="~{fragments :: nav}"></header>
+<main>
+    <h1>Модели</h1>
+    <p class="lead">Все модели по всем прогонам. Сначала идут модели с лучшей средней оценкой, затем без оценок.
+        Чтобы сравнить модели на конкретной задаче, откройте её на странице «Промпты».</p>
+    <div th:replace="~{fragments :: stats(${stats}, true)}"></div>
+</main>
+</body>
+</html>

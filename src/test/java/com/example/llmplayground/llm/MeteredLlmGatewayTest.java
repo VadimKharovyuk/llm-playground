@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MeteredLlmGatewayTest {
 
     private static final LlmParams PARAMS = new LlmParams(0.2, 256, false);
-    private static final CallContext CTX = new CallContext(1L, 1, false);
+    private static final CallContext CTX = new CallContext(1L, 5L, 1, false);
 
     private static LlmRequest request(String model) {
         return new LlmRequest(ModelRef.parse(model), "greeting", "Say hi", PARAMS);

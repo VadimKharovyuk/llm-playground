@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Новое сравнение')}"></head>
+<body>
+<header th:replace="~{fragments :: nav}"></header>
+<main>
+    <h1>Новое сравнение</h1>
+    <p class="lead">Напишите задание. Каждая выбранная модель ответит на него, и ответы можно будет сравнить
+        рядом по качеству, токенам и времени.</p>
+
+    <div class="alert error" th:if="${error}" th:text="${error}"></div>
+    <div class="alert warn" th:unless="${openRouterKey}">
+        Ключ OpenRouter не задан: облачные модели вернут ERROR. Добавьте <code>OPENROUTER_API_KEY</code> в файл
+        <code>.env</code> и перезапустите приложение.
+    </div>
+
+    <form method="post" th:action="@{/runs}" th:object="${form}" class="run-form">
+        <section class="card">
+            <h2>1. Задание</h2>
+            <label for="newPromptText">Новое задание</label>
+            <textarea id="newPromptText" th:field="*{newPromptText}" rows="8"
+                      placeholder="Например: Напиши контроллер и репозиторий на Spring Boot для сущности Book..."></textarea>
+            <div class="row">
+                <div class="grow">
+                    <label for="newPromptName">Название (необязательно)</label>
+                    <input type="text" id="newPromptName" th:field="*{newPromptName}"
+                           placeholder="spring-book-api" maxlength="200">
+                </div>
+            </div>
+            <p class="hint">Новое задание сохраняется в библиотеку промптов. Можно добавить и сохранённые:</p>
+            <div class="checklist prompts" th:unless="${#lists.isEmpty(prompts)}">
+                <label th:each="p : ${prompts}" class="check" th:title="${#strings.abbreviate(p.text, 300)}">
+                    <input type="checkbox" th:field="*{promptIds}" th:value="${p.id}">
+                    <span th:text="${p.name}"></span>
+                </label>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>2. Модели</h2>
+            <div class="checklist models" id="model-list">
+                <label th:each="m : ${modelOptions}" class="check">
+                    <input type="checkbox" th:field="*{models}" th:value="${m}">
+                    <span th:text="${m}"></span>
+                    <small class="muted" th:unless="${configuredModels.contains(m)}">установлена</small>
+                </label>
+            </div>
+            <label for="extraModels">Другие модели (через запятую или с новой строки)</label>
+            <div class="row">
+                <input class="grow" type="text" id="extraModels" th:field="*{extraModels}" list="openrouter-models"
+                       placeholder="openrouter:google/gemini-3-flash-preview, ollama:qwen3:8b">
+                <button type="button" class="secondary" id="add-model">Добавить</button>
+            </div>
+            <datalist id="openrouter-models">
+                <option th:each="m : ${openRouterModels}" th:value="${m}"></option>
+            </datalist>
+            <p class="hint">Список моделей по умолчанию задаётся в <code>application.properties</code>
+                (<code>playground.models[N]</code>). Свой лимит токенов для моделей:
+                <span th:each="o, st : ${overrides}"><code th:text="${o.model} + ' → ' + ${o.maxTokens}"></code><span th:unless="${st.last}">, </span></span>
+                <span th:if="${#lists.isEmpty(overrides)}">нет</span>.
+            </p>
+        </section>
+
+        <section class="card">
+            <h2>3. Параметры</h2>
+            <div class="row params">
+                <div><label for="temperature">temperature</label>
+                    <input type="number" id="temperature" th:field="*{temperature}" step="0.1" min="0" max="2"></div>
+                <div><label for="maxTokens">max tokens</label>
+                    <input type="number" id="maxTokens" th:field="*{maxTokens}" min="1" max="200000"></div>
+                <div><label for="runsPerPrompt">повторов</label>
+                    <input type="number" id="runsPerPrompt" th:field="*{runsPerPrompt}" min="1" max="20"></div>
+                <div class="grow"><label for="comment">комментарий</label>
+                    <input type="text" id="comment" th:field="*{comment}" maxlength="500"></div>
+            </div>
+            <label class="check inline"><input type="checkbox" th:field="*{streaming}"> стриминг (замер TTFT)</label>
+            <label class="check inline"><input type="checkbox" th:field="*{warmup}"> прогрев Ollama перед замером</label>
+        </section>
+
+        <button type="submit" class="primary big">Запустить сравнение</button>
+    </form>
+</main>
+</body>
+</html>

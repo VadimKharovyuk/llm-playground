@@ -10,7 +10,7 @@ import java.util.Locale;
 import java.util.function.Function;
 
 /**
- * Renders a run report as a console table, Markdown or CSV.
+ * Renders a run report as Markdown or CSV for articles.
  * All numbers use {@link Locale#ROOT}: "12.5", never "12,5".
  */
 public final class ReportFormatter {
@@ -31,34 +31,10 @@ public final class ReportFormatter {
             new Column("compl_tok", s -> num(s.avgCompletionTokens(), 1)),
             new Column("tok_per_s", s -> num(s.avgTokensPerSecond(), 1)),
             new Column("cost_usd", s -> money(s.totalCostUsd())),
-            new Column("cold_ms", s -> num(s.coldStartMs())));
+            new Column("cold_ms", s -> num(s.coldStartMs())),
+            new Column("rating", s -> num(s.avgRating(), 2)));
 
     private ReportFormatter() {
-    }
-
-    public static String console(Run run, List<ModelStats> stats) {
-        List<String> headers = COLUMNS.stream().map(Column::header).toList();
-        List<List<String>> rows = stats.stream()
-                .map(s -> COLUMNS.stream().map(c -> c.value().apply(s)).toList())
-                .toList();
-        int[] widths = new int[headers.size()];
-        for (int i = 0; i < widths.length; i++) {
-            widths[i] = headers.get(i).length();
-            for (List<String> row : rows) {
-                widths[i] = Math.max(widths[i], row.get(i).length());
-            }
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append(System.lineSeparator()).append(header(run)).append(System.lineSeparator());
-        appendConsoleRow(sb, headers, widths);
-        StringBuilder rule = new StringBuilder();
-        for (int width : widths) {
-            rule.append("-".repeat(width)).append("  ");
-        }
-        sb.append(rule.toString().stripTrailing()).append(System.lineSeparator());
-        rows.forEach(row -> appendConsoleRow(sb, row, widths));
-        sb.append(footnote());
-        return sb.toString();
     }
 
     public static String markdown(Run run, List<ModelStats> stats) {
@@ -98,7 +74,7 @@ public final class ReportFormatter {
     public static String callsCsv(List<CallRow> calls) {
         StringBuilder sb = new StringBuilder("id,provider,model,prompt,repeat,started_at,duration_ms,ttft_ms,"
                 + "prompt_tokens,completion_tokens,total_tokens,tokens_per_second,finish_reason,cost_usd,"
-                + "cold_start,status,error\n");
+                + "cold_start,status,error,rating\n");
         for (CallRow c : calls) {
             sb.append(String.join(",", List.of(
                     Long.toString(c.id()), csv(c.provider()), csv(c.model()), csv(c.promptName()),
@@ -106,33 +82,25 @@ public final class ReportFormatter {
                     Long.toString(c.durationMs()), raw(c.ttftMs()), raw(c.promptTokens()), raw(c.completionTokens()),
                     raw(c.totalTokens()), c.tokensPerSecond() == null ? "" : num(c.tokensPerSecond(), 2),
                     csv(c.finishReason()), c.costUsd() == null ? "" : c.costUsd().stripTrailingZeros().toPlainString(),
-                    Boolean.toString(c.coldStart()), csv(c.status()), csv(c.errorMessage()))));
+                    Boolean.toString(c.coldStart()), csv(c.status()), csv(c.errorMessage()), raw(c.rating()))));
             sb.append('\n');
         }
         return sb.toString();
     }
 
-    static String num(Double value, int decimals) {
+    public static String num(Double value, int decimals) {
         return value == null ? "-" : String.format(Locale.ROOT, "%." + decimals + "f", value);
     }
 
-    static String num(Long value) {
+    public static String num(Long value) {
         return value == null ? "-" : Long.toString(value);
     }
 
-    static String money(BigDecimal value) {
+    public static String money(BigDecimal value) {
         if (value == null) {
             return "-";
         }
         return value.setScale(6, RoundingMode.HALF_UP).toPlainString();
-    }
-
-    private static String header(Run run) {
-        StringBuilder sb = new StringBuilder("=== Run #" + run.getId() + " ===");
-        for (String[] p : parameters(run)) {
-            sb.append(System.lineSeparator()).append(String.format(Locale.ROOT, "%-16s %s", p[0] + ":", p[1]));
-        }
-        return sb.append(System.lineSeparator()).toString();
     }
 
     private static List<String[]> parameters(Run run) {
@@ -157,16 +125,7 @@ public final class ReportFormatter {
         return "Times in ms over measured OK calls (warm-up and model reloads excluded); "
                 + "ttft = time to first token (streaming); "
                 + "tok_per_s = completion tokens per second (Ollama: eval_count/eval_duration); "
-                + "cold_ms = Ollama warm-up call; cost includes all calls." + System.lineSeparator();
-    }
-
-    private static void appendConsoleRow(StringBuilder sb, List<String> values, int[] widths) {
-        StringBuilder line = new StringBuilder();
-        for (int i = 0; i < values.size(); i++) {
-            String format = i < 2 ? "%-" + widths[i] + "s  " : "%" + widths[i] + "s  ";
-            line.append(String.format(Locale.ROOT, format, values.get(i)));
-        }
-        sb.append(line.toString().stripTrailing()).append(System.lineSeparator());
+                + "cold_ms = Ollama warm-up call; cost includes all calls; rating = manual score 1-5.\n";
     }
 
     private static String raw(Number value) {

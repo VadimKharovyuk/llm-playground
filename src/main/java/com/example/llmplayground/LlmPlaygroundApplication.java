@@ -9,7 +9,6 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 public class LlmPlaygroundApplication {
 
     public static void main(String[] args) {
-        // Console app: close the context and exit when the runner is done.
-        System.exit(SpringApplication.exit(SpringApplication.run(LlmPlaygroundApplication.class, args)));
+        SpringApplication.run(LlmPlaygroundApplication.class, args);
     }
 }

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ошибка · LLM Playground</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<header class="topbar"><a class="brand" th:href="@{/}">LLM&nbsp;Playground</a></header>
+<main>
+    <h1 th:text="${status} + ' ' + ${error}">Ошибка</h1>
+    <p th:text="${message}"></p>
+    <p><a th:href="@{/}">На главную</a></p>
+</main>
+</body>
+</html>

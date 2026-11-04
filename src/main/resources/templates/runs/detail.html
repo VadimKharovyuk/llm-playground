@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Прогон #' + ${run.id})}"></head>
+<body>
+<header th:replace="~{fragments :: nav}"></header>
+<main>
+    <div class="title-row">
+        <h1 th:text="'Прогон #' + ${run.id}">Прогон</h1>
+        <div class="actions">
+            <a class="button secondary" th:href="@{/(from=${run.id})}">Повторить</a>
+            <a class="button secondary" th:href="@{/runs/{id}/report.md(id=${run.id})}">Markdown</a>
+            <a class="button secondary" th:href="@{/runs/{id}/report.csv(id=${run.id})}">CSV</a>
+            <a class="button secondary" th:href="@{/runs/{id}/calls.csv(id=${run.id})}">CSV вызовов</a>
+            <form method="post" th:action="@{/runs/{id}/delete(id=${run.id})}"
+                  onsubmit="return confirm('Удалить прогон и все его ответы?')">
+                <button type="submit" class="danger">Удалить</button>
+            </form>
+        </div>
+    </div>
+    <div th:replace="~{fragments :: flash}"></div>
+
+    <dl class="params-list">
+        <div><dt>Начат</dt><dd th:text="${@fmt.dateTime(run.startedAt)}"></dd></div>
+        <div><dt>temperature</dt><dd th:text="${run.temperature ?: '–'}"></dd></div>
+        <div><dt>max tokens</dt><dd th:text="${run.maxTokens ?: '–'}"></dd></div>
+        <div><dt>повторов</dt><dd th:text="${run.runsPerPrompt}"></dd></div>
+        <div><dt>стриминг</dt><dd th:text="${run.streaming} ? 'да' : 'нет'"></dd></div>
+        <div th:if="${run.comment}"><dt>комментарий</dt><dd th:text="${run.comment}"></dd></div>
+    </dl>
+
+    <div id="live" th:fragment="live" th:attr="data-status=${run.status},data-url=@{/runs/{id}/live(id=${run.id})}">
+        <div class="progress-row">
+            <span class="status" th:classappend="${#strings.toLowerCase(run.status.name())}" th:text="${run.status}"></span>
+            <div class="progress"><div th:style="'width:' + ${progress.percent()} + '%'"></div></div>
+            <span class="muted" th:text="${progress.done} + ' / ' + ${progress.expected} + ' вызовов'"></span>
+            <span class="muted" th:if="${run.finishedAt}" th:text="'завершён ' + ${@fmt.dateTime(run.finishedAt)}"></span>
+        </div>
+        <div class="alert error" th:if="${run.errorMessage}" th:text="${run.errorMessage}"></div>
+
+        <h2>Сводка</h2>
+        <div th:replace="~{fragments :: stats(${stats}, false)}"></div>
+        <p class="hint">Время и токены считаются по успешным измеряемым вызовам, без прогрева и без перезагрузки
+            модели. Скорость Ollama берётся из её счётчиков eval_count / eval_duration.</p>
+
+        <section th:each="g : ${groups}" class="prompt-group">
+            <h2>
+                <a th:if="${g.promptId}" th:href="@{/prompts/{id}(id=${g.promptId})}" th:text="${g.name}"></a>
+                <span th:unless="${g.promptId}" th:text="${g.name}"></span>
+            </h2>
+            <details th:if="${g.text}" class="prompt-text">
+                <summary>Текст задания</summary>
+                <pre th:text="${g.text}"></pre>
+            </details>
+            <div class="answers">
+                <th:block th:each="c : ${g.calls}"><article th:replace="~{fragments :: answer(${c}, '/runs/' + ${run.id}, ${!run.status.isActive()})}"></article></th:block>
+            </div>
+        </section>
+        <p class="muted" th:if="${#lists.isEmpty(groups) and run.status.isActive()}">Ждём первых ответов…</p>
+    </div>
+</main>
+</body>
+</html>

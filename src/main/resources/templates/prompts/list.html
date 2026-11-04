@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Промпты')}"></head>
+<body>
+<header th:replace="~{fragments :: nav}"></header>
+<main>
+    <h1>Промпты</h1>
+    <div th:replace="~{fragments :: flash}"></div>
+
+    <form method="post" th:action="@{/prompts}" class="card">
+        <h2>Новый промпт</h2>
+        <label for="name">Название</label>
+        <input type="text" id="name" name="name" maxlength="200" placeholder="spring-book-api">
+        <label for="text">Задание</label>
+        <textarea id="text" name="text" rows="6" required></textarea>
+        <button type="submit" class="primary">Сохранить</button>
+    </form>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr><th>Название</th><th>Задание</th><th>Создан</th><th></th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="p : ${prompts}">
+                <td class="nowrap"><a th:href="@{/prompts/{id}(id=${p.id})}" th:text="${p.name}"></a></td>
+                <td class="clip wide" th:text="${#strings.abbreviate(p.text, 160)}"></td>
+                <td class="nowrap" th:text="${@fmt.dateTime(p.createdAt)}"></td>
+                <td><a class="button small" th:href="@{/(prompt=${p.id})}">Сравнить</a></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

@@ -21,5 +21,6 @@ public record CallRow(
         BigDecimal costUsd,
         boolean coldStart,
         String status,
-        String errorMessage) {
+        String errorMessage,
+        Integer rating) {
 }

@@ -26,6 +26,10 @@ public class OpenRouterProvider implements LlmProvider {
         this.streamIdleTimeout = streamIdleTimeout;
     }
 
+    public boolean isConfigured() {
+        return apiKeyPresent;
+    }
+
     @Override
     public ProviderType type() {
         return ProviderType.OPENROUTER;

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(${prompt.name})}"></head>
+<body>
+<header th:replace="~{fragments :: nav}"></header>
+<main>
+    <div class="title-row">
+        <h1 th:text="${prompt.name}"></h1>
+        <div class="actions">
+            <a class="button primary" th:href="@{/(prompt=${prompt.id})}">Сравнить модели</a>
+            <form th:unless="${used}" method="post" th:action="@{/prompts/{id}/delete(id=${prompt.id})}"
+                  onsubmit="return confirm('Удалить промпт?')">
+                <button type="submit" class="danger">Удалить</button>
+            </form>
+        </div>
+    </div>
+    <div th:replace="~{fragments :: flash}"></div>
+
+    <form method="post" th:action="@{/prompts/{id}(id=${prompt.id})}" class="card">
+        <label for="name">Название</label>
+        <input type="text" id="name" name="name" th:value="${prompt.name}" maxlength="200">
+        <label for="text">Задание</label>
+        <textarea id="text" name="text" rows="8" th:text="${prompt.text}" required></textarea>
+        <p class="hint" th:if="${used}">На этот промпт уже есть ответы, поэтому изменённый текст сохранится
+            как новый промпт, а старые ответы останутся привязаны к исходному тексту.</p>
+        <button type="submit" class="secondary">Сохранить</button>
+    </form>
+
+    <h2>Модели на этом задании</h2>
+    <div th:replace="~{fragments :: stats(${stats}, true)}"></div>
+
+    <h2>Последние ответы</h2>
+    <div class="answers">
+        <th:block th:each="c : ${calls}"><article th:replace="~{fragments :: answer(${c}, '/prompts/' + ${prompt.id}, true)}"></article></th:block>
+    </div>
+    <p class="muted" th:if="${#lists.isEmpty(calls)}">Ответов пока нет.</p>
+</main>
+</body>
+</html>

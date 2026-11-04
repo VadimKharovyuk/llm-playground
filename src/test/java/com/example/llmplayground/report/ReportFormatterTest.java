@@ -28,7 +28,7 @@ class ReportFormatterTest {
     }
 
     private static final ModelStats STATS = new ModelStats("OLLAMA", "llama3.2:3b", 6, 5, 1, 0,
-            1234.56, 900L, 2100L, 1200.0, 180.4, 25.0, 12.5, 48.25, new BigDecimal("0.0001234567"), 5400L);
+            1234.56, 900L, 2100L, 1200.0, 180.4, 25.0, 12.5, 48.25, new BigDecimal("0.0001234567"), 5400L, 4.5, 2, 1, Instant.parse("2026-11-04T10:00:00Z"));
 
     private static Run run() {
         Run run = new Run();
@@ -43,8 +43,8 @@ class ReportFormatterTest {
 
     @Test
     void numbersUseDotEvenOnRussianLocale() {
-        String console = ReportFormatter.console(run(), List.of(STATS));
-        assertThat(console).contains("12.5").contains("48.3").contains("1235").contains("0.000123")
+        String md = ReportFormatter.markdown(run(), List.of(STATS));
+        assertThat(md).contains("12.5").contains("48.3").contains("1235").contains("0.000123").contains("4.50")
                 .doesNotContain("12,5").doesNotContain("48,3");
     }
 
@@ -60,6 +60,6 @@ class ReportFormatterTest {
         assertThat(ReportFormatter.csv("a,b")).isEqualTo("\"a,b\"");
         assertThat(ReportFormatter.csv("say \"hi\"")).isEqualTo("\"say \"\"hi\"\"\"");
         assertThat(ReportFormatter.statsCsv(List.of(STATS)).lines().skip(1).findFirst().orElseThrow())
-                .startsWith("OLLAMA,llama3.2:3b,6,5,1,0,1235,900,2100,1200,180,25.0,12.5,48.3,0.000123,5400");
+                .isEqualTo("OLLAMA,llama3.2:3b,6,5,1,0,1235,900,2100,1200,180,25.0,12.5,48.3,0.000123,5400,4.50");
     }
 }

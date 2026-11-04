@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' · LLM Playground'">LLM Playground</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script defer th:src="@{/js/app.js}"></script>
+</head>
+<body>
+
+<header th:fragment="nav" class="topbar">
+    <a class="brand" th:href="@{/}">LLM&nbsp;Playground</a>
+    <nav>
+        <a th:href="@{/}" th:classappend="${active == 'new'} ? 'active'">Новое сравнение</a>
+        <a th:href="@{/runs}" th:classappend="${active == 'runs'} ? 'active'">Прогоны</a>
+        <a th:href="@{/prompts}" th:classappend="${active == 'prompts'} ? 'active'">Промпты</a>
+        <a th:href="@{/models}" th:classappend="${active == 'models'} ? 'active'">Модели</a>
+    </nav>
+</header>
+
+<div th:fragment="flash">
+    <div class="alert error" th:if="${error}" th:text="${error}"></div>
+    <div class="alert ok" th:if="${message}" th:text="${message}"></div>
+</div>
+
+<!-- Summary table per model; used on run, prompt and model pages -->
+<div th:fragment="stats(stats, showRuns)" class="table-wrap">
+    <table class="stats">
+        <thead>
+        <tr>
+            <th>Модель</th>
+            <th th:if="${showRuns}" class="num">Прогонов</th>
+            <th class="num" title="Измеряемых вызовов (без прогрева)">Вызовов</th>
+            <th class="num" title="Ошибки / пустые ответы">ERR / EMPTY</th>
+            <th class="num" title="Средняя ручная оценка 1–5">Оценка</th>
+            <th class="num">Среднее</th>
+            <th class="num">Медиана</th>
+            <th class="num">Мин – макс</th>
+            <th class="num" title="Время до первого токена">TTFT</th>
+            <th class="num" title="Средние токены промпта / ответа">Токены in / out</th>
+            <th class="num">ток/с</th>
+            <th class="num">Стоимость</th>
+            <th class="num" title="Прогревочный вызов Ollama (загрузка модели)">Холодный старт</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="s : ${stats}">
+            <td><span class="badge" th:classappend="${s.provider}" th:text="${#strings.toLowerCase(s.provider)}"></span>
+                <span class="model" th:text="${s.model}"></span></td>
+            <td th:if="${showRuns}" class="num" th:text="${s.runs}"></td>
+            <td class="num" th:text="${s.calls}"></td>
+            <td class="num"><span th:classappend="${s.errors > 0} ? 'bad'" th:text="${s.errors}"></span> /
+                <span th:classappend="${s.empty > 0} ? 'warn'" th:text="${s.empty}"></span></td>
+            <td class="num" th:text="${s.rated > 0} ? ${@fmt.stars(s.avgRating)} + ' (' + ${s.rated} + ')' : '–'"></td>
+            <td class="num strong" th:text="${@fmt.ms(s.avgMs)}"></td>
+            <td class="num" th:text="${@fmt.ms(s.p50Ms)}"></td>
+            <td class="num" th:text="${@fmt.ms(s.minMs)} + ' – ' + ${@fmt.ms(s.maxMs)}"></td>
+            <td class="num" th:text="${@fmt.ms(s.avgTtftMs)}"></td>
+            <td class="num" th:text="${@fmt.num(s.avgPromptTokens, 0)} + ' / ' + ${@fmt.num(s.avgCompletionTokens, 0)}"></td>
+            <td class="num" th:text="${@fmt.num(s.avgTokensPerSecond, 1)}"></td>
+            <td class="num" th:text="${@fmt.money(s.totalCostUsd)}"></td>
+            <td class="num" th:text="${@fmt.ms(s.coldStartMs)}"></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(stats)}">
+            <td colspan="13" class="muted">Пока нет данных</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- One answer card with metrics and the rating form -->
+<article th:fragment="answer(c, back, rateable)" class="answer" th:id="'call-' + ${c.id}"
+         th:classappend="${#strings.toLowerCase(c.status.name())}">
+    <header>
+        <div>
+            <span class="badge" th:classappend="${c.provider}" th:text="${#strings.toLowerCase(c.provider.name())}"></span>
+            <strong class="model" th:text="${c.model}"></strong>
+            <span class="muted" th:if="${c.repeatNo > 1}" th:text="'#' + ${c.repeatNo}"></span>
+        </div>
+        <span class="status" th:classappend="${#strings.toLowerCase(c.status.name())}" th:text="${c.status}"></span>
+    </header>
+    <ul class="metrics">
+        <li title="Полное время"><b th:text="${@fmt.ms(c.durationMs)}"></b> всего</li>
+        <li th:if="${c.ttftMs != null}" title="Время до первого токена"><b th:text="${@fmt.ms(c.ttftMs)}"></b> TTFT</li>
+        <li title="Токены промпта / ответа"><b th:text="${c.promptTokens ?: '–'} + ' / ' + ${c.completionTokens ?: '–'}"></b> ток.</li>
+        <li><b th:text="${@fmt.num(c.tokensPerSecond, 1)}"></b> ток/с</li>
+        <li th:if="${c.costUsd != null}"><b th:text="${@fmt.money(c.costUsd)}"></b></li>
+        <li th:if="${c.finishReason != null}" th:classappend="${c.finishReason == 'length'} ? 'warn'"
+            th:text="${c.finishReason}"></li>
+        <li th:if="${c.coldStart}" class="warn" title="Модель загружалась в память">cold start</li>
+    </ul>
+    <p class="error-text" th:if="${c.errorMessage}" th:text="${c.errorMessage}"></p>
+    <div class="answer-body" th:if="${c.responseText != null and !#strings.isEmpty(c.responseText)}">
+        <div class="answer-tools"><button type="button" class="link toggle-raw">исходный текст</button>
+            <button type="button" class="link copy">копировать</button></div>
+        <pre class="answer-raw" th:text="${c.responseText}"></pre>
+    </div>
+    <form th:if="${rateable}" class="rating" method="post" th:action="@{/calls/{id}/rating(id=${c.id})}">
+        <input type="hidden" name="back" th:value="${back}">
+        <span class="stars">
+            <th:block th:each="n : ${#numbers.sequence(5, 1)}">
+                <input type="radio" name="rating" th:id="'r' + ${c.id} + '-' + ${n}" th:value="${n}"
+                       th:checked="${c.rating != null and c.rating == n}" onchange="this.form.requestSubmit()">
+                <label th:for="'r' + ${c.id} + '-' + ${n}" th:title="${n}">★</label>
+            </th:block>
+        </span>
+        <input type="text" name="note" th:value="${c.ratingNote}" placeholder="заметка о качестве" maxlength="2000">
+        <button type="submit" class="small">Сохранить</button>
+    </form>
+</article>
+
+</body>
+</html>

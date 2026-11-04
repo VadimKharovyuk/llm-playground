@@ -33,12 +33,13 @@ class RecordingLlmGatewayTest {
         OllamaMetrics ollama = new OllamaMetrics(42, 1_120_000_000L, 11, 30_000_000L, 4_000_000L);
         RecordingLlmGateway gateway = new RecordingLlmGateway((r, c) -> result(CallStatus.OK, null, ollama), repository);
 
-        gateway.call(REQUEST, new CallContext(7L, 2, false));
+        gateway.call(REQUEST, new CallContext(7L, 5L, 2, false));
 
         ArgumentCaptor<LlmCall> captor = ArgumentCaptor.forClass(LlmCall.class);
         verify(repository).save(captor.capture());
         LlmCall call = captor.getValue();
         assertThat(call.getRunId()).isEqualTo(7L);
+        assertThat(call.getPromptId()).isEqualTo(5L);
         assertThat(call.getProvider()).isEqualTo(ProviderType.OLLAMA);
         assertThat(call.getModel()).isEqualTo("llama3.2:3b");
         assertThat(call.getPromptName()).isEqualTo("greeting");
@@ -69,7 +70,7 @@ class RecordingLlmGatewayTest {
         RecordingLlmGateway gateway = new RecordingLlmGateway(
                 (r, c) -> result(CallStatus.ERROR, "TIMEOUT: request timed out", null), repository);
 
-        LlmResult returned = gateway.call(REQUEST, new CallContext(7L, 1, false));
+        LlmResult returned = gateway.call(REQUEST, new CallContext(7L, 5L, 1, false));
 
         ArgumentCaptor<LlmCall> captor = ArgumentCaptor.forClass(LlmCall.class);
         verify(repository).save(captor.capture());
@@ -84,7 +85,7 @@ class RecordingLlmGatewayTest {
         OllamaMetrics loaded = new OllamaMetrics(42, 1_000_000_000L, 11, 30_000_000L, 3_500_000_000L);
         RecordingLlmGateway gateway = new RecordingLlmGateway((r, c) -> result(CallStatus.OK, null, loaded), repository);
 
-        gateway.call(REQUEST, new CallContext(7L, 3, false));   // model was evicted and reloaded
+        gateway.call(REQUEST, new CallContext(7L, 5L, 3, false));   // model was evicted and reloaded
 
         ArgumentCaptor<LlmCall> captor = ArgumentCaptor.forClass(LlmCall.class);
         verify(repository).save(captor.capture());
@@ -97,14 +98,14 @@ class RecordingLlmGatewayTest {
         when(repository.save(any())).thenThrow(new IllegalStateException("db down"));
         RecordingLlmGateway gateway = new RecordingLlmGateway((r, c) -> result(CallStatus.OK, null, null), repository);
 
-        assertThat(gateway.call(REQUEST, new CallContext(7L, 1, false)).status()).isEqualTo(CallStatus.OK);
+        assertThat(gateway.call(REQUEST, new CallContext(7L, 5L, 1, false)).status()).isEqualTo(CallStatus.OK);
     }
 
     @Test
     void callsWithoutRunAreNotStored() {
         LlmCallRepository repository = mock(LlmCallRepository.class);
         new RecordingLlmGateway((r, c) -> result(CallStatus.OK, null, null), repository)
-                .call(REQUEST, new CallContext(null, 1, false));
+                .call(REQUEST, new CallContext(null, 5L, 1, false));
         verify(repository, never()).save(any());
     }
 }
