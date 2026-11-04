@@ -1,0 +1,1 @@
+Explain the CAP theorem to a backend developer in at most 150 words. Give one concrete example of a CP system and one of an AP system.

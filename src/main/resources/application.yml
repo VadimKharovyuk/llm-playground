@@ -58,9 +58,9 @@ spring:
     openai:
       # OpenRouter is OpenAI-compatible. No /v1 here: Spring AI appends /v1/chat/completions itself.
       base-url: https://openrouter.ai/api
-      # Placeholder keeps startup working without a key (Ollama-only runs);
-      # OpenRouter calls then fail with a clear ERROR instead of a 401.
-      api-key: ${OPENROUTER_API_KEY:missing}
+      # Without a key (Ollama-only runs) OpenRouterKeyPlaceholder substitutes a placeholder,
+      # so startup works and OpenRouter calls fail with a clear ERROR instead of a 401.
+      api-key: ${OPENROUTER_API_KEY:}
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       init:

@@ -1,0 +1,11 @@
+Review this Java method. List the bugs you find and give a corrected version.
+
+```java
+public static double average(List<Integer> values) {
+    int sum = 0;
+    for (int i = 0; i <= values.size(); i++) {
+        sum += values.get(i);
+    }
+    return sum / values.size();
+}
+```

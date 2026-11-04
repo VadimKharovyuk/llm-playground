@@ -1,0 +1,3 @@
+Extract the data from the text below and answer with JSON only, no explanations. Fields: name (string), city (string), age (number), languages (array of strings).
+
+Text: "Olena is 29, lives in Lviv and writes backend services in Java and Kotlin; on weekends she plays with Rust."
