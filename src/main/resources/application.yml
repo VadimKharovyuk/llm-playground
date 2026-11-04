@@ -1,0 +1,106 @@
+# llm-playground configuration.
+# Secrets (OPENROUTER_API_KEY, DB_PASSWORD, ...) come only from environment variables
+# or from the .env file in the working directory, never from this file.
+
+spring:
+  application:
+    name: llm-playground
+  config:
+    import: optional:file:.env[.properties]
+  main:
+    web-application-type: none   # console app: no web server, even though webflux is on the classpath
+    banner-mode: off
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate          # schema is owned by Flyway
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+
+  # HTTP timeouts for the clients Spring AI builds (RestClient for blocking calls, WebClient for streaming).
+  http:
+    client:
+      connect-timeout: ${playground.http.connect-timeout}
+      read-timeout: ${playground.http.read-timeout}
+    reactiveclient:
+      connect-timeout: ${playground.http.connect-timeout}
+      read-timeout: ${playground.http.read-timeout}
+
+  ai:
+    retry:
+      max-attempts: 2             # a failed call must not hang for minutes
+      on-client-errors: false
+      backoff:
+        initial-interval: 1s
+        multiplier: 2
+        max-interval: 5s
+    # Both chat models are created; our LlmGateway picks one per call.
+    # Everything else the starters could auto-configure is switched off.
+    model:
+      embedding: none
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      moderation: none
+    chat:
+      client:
+        enabled: false            # two ChatModel beans -> no single ChatClient.Builder
+    openai:
+      # OpenRouter is OpenAI-compatible. No /v1 here: Spring AI appends /v1/chat/completions itself.
+      base-url: https://openrouter.ai/api
+      # Placeholder keeps startup working without a key (Ollama-only runs);
+      # OpenRouter calls then fail with a clear ERROR instead of a 401.
+      api-key: ${OPENROUTER_API_KEY:missing}
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      init:
+        pull-model-strategy: never
+
+playground:
+  # run    - execute a benchmark run, print the summary, export the report
+  # report - export the report of an existing run (playground.report.run-id, latest if empty)
+  # none   - do nothing (used by tests)
+  mode: run
+  models:
+    - openrouter:anthropic/claude-haiku-5.5
+    - ollama:llama3.2:3b
+  # Prompt names = file names in src/main/resources/prompts without extension. Empty = all prompts.
+  prompts: []
+  temperature: 0.2
+  max-tokens: 1024
+  runs-per-prompt: 3
+  streaming: true                 # needed for time-to-first-token
+  warmup: true                    # Ollama: one warm-up call per model, stored with cold_start=true
+  comment: ""
+  app-version: '@project.version@'
+  # Reasoning models spend tokens on hidden thinking: give them headroom,
+  # otherwise they return an empty answer with finish_reason=length.
+  model-overrides:
+    - model: openrouter:deepseek/deepseek-r1-0528
+      max-tokens: 8192
+    - model: ollama:qwen3:8b
+      max-tokens: 4096
+  http:
+    connect-timeout: 10s
+    read-timeout: 120s
+  openrouter:
+    fetch-cost: true              # ask /api/v1/generation for the exact cost of each call
+  report:
+    run-id:
+    output-dir: reports
+
+logging:
+  level:
+    root: INFO
+    org.springframework.ai: WARN
+    org.hibernate.SQL: WARN
